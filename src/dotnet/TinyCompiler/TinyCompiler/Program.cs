@@ -1,15 +1,23 @@
-﻿// See https://aka.ms/new-console-template for more information
-using TinyCompiler;
+﻿using TinyCompiler;
 
-Console.WriteLine("Hello, World!");
+Console.WriteLine("Tiny Compiler");
 
-string source = "IF+-123 foo*THEN/";
+//if (args.Length != 2)
+//{
+//    Console.WriteLine("Error: Compiler needs a source file as an argument.");
+//}
+
+string source = File.ReadAllText("hello.tiny");
+
 Lexer lexer = new Lexer(source);
-
-var token = lexer.GetToken();
-while (token.Kind != TokenType.EOF)
+Parser parser = new Parser(lexer);
+try
 {
-    Console.WriteLine(token.Kind);
-    Console.WriteLine(token.Text);
-    token = lexer.GetToken();
+    parser.Program();
 }
+catch (Exception ex)
+{
+
+}
+Console.WriteLine("Parsing complete");
+Console.ReadLine();

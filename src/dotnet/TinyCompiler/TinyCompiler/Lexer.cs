@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-
-namespace TinyCompiler
+﻿namespace TinyCompiler
 {
     public class Lexer
     {
@@ -201,7 +194,7 @@ namespace TinyCompiler
                             }
                         }
 
-                        string number = _source.Substring(numberStartIndex, _currentCharIndex - numberStartIndex);
+                        string number = _source.Substring(numberStartIndex, _currentCharIndex - numberStartIndex + 1);
                         token = new Token(number, TokenType.Number);
 
                     }
