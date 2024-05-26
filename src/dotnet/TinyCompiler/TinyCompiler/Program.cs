@@ -9,11 +9,13 @@ Console.WriteLine("Tiny Compiler");
 
 string source = File.ReadAllText("hello.tiny");
 
-Lexer lexer = new Lexer(source);
-Parser parser = new Parser(lexer);
 try
 {
+    Lexer lexer = new Lexer(source);
+    Emitter emitter = new Emitter("out.c");
+    Parser parser = new Parser(lexer, emitter);
     parser.Program();
+    emitter.WriteFile();
 }
 catch (Exception ex)
 {

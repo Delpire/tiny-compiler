@@ -37,7 +37,7 @@ namespace TinyCompiler
         GreaterThanOrEqual,
     }
 
-    public class Token
+    public record Token
     {
         private static Dictionary<string, TokenType> _keywords = new()
         {

@@ -3,6 +3,7 @@
     public class Parser
     {
         private Lexer _lexer;
+        private Emitter _emitter;
         private Token _currentToken;
         private Token _peekToken;
 
@@ -10,9 +11,10 @@
         private HashSet<Token> _labelsDeclared = new();
         private HashSet<Token> _labelesGotoed = new();
 
-        public Parser(Lexer lexer)
+        public Parser(Lexer lexer, Emitter emitter)
         {
             _lexer = lexer;
+            _emitter = emitter;
 
             NextToken();
             NextToken();
@@ -53,7 +55,10 @@
         // program ::= {statement}
         public void Program()
         {
-            Console.WriteLine("PROGRAM");
+            _emitter.HeaderLine("#include <stdio.h>");
+            _emitter.HeaderLine("int main(void)");
+            _emitter.HeaderLine("{");
+
 
             while (CheckToken(TokenType.Newline))
             {
@@ -64,6 +69,9 @@
             {
                 Statement();
             }
+
+            _emitter.EmitLine("return 0;");
+            _emitter.EmitLine("}");
 
             foreach (var label in _labelesGotoed)
             {
@@ -79,24 +87,28 @@
             // "PRINT" (expression | string) nl
             if (CheckToken(TokenType.Print))
             {
-                Console.WriteLine("STATEMENT-PRINT");
                 NextToken();
 
                 if (CheckToken(TokenType.String))
                 {
+                    _emitter.EmitLine($"printf(\"{_currentToken.Text}\\n\");");
                     NextToken();
                 }
                 else
                 {
+                    _emitter.Emit("printf(\"%.2f\\n\", (float)(");
                     Expression();
+                    _emitter.EmitLine("));");
                 }
             }
             // "IF" comparison "THEN" nl {statement} "ENDIF" nl
             else if (CheckToken(TokenType.If))
             {
-                Console.WriteLine("STATEMENT-IF");
                 NextToken();
+                _emitter.Emit("if (");
                 Comparison();
+                _emitter.EmitLine(")");
+                _emitter.EmitLine("{");
 
                 Match(TokenType.Then);
                 NewLine();
@@ -107,14 +119,16 @@
                 }
 
                 Match(TokenType.Endif);
+                _emitter.EmitLine("}");
             }
             // "WHILE" comparison "REPEAT" nl {statement nl} "ENDWHILE" nl
             else if (CheckToken(TokenType.While))
             {
-                Console.WriteLine("STATEMENT-WHILE");
-
                 NextToken();
+                _emitter.Emit("while (");
                 Comparison();
+                _emitter.EmitLine(")");
+                _emitter.EmitLine("{");
 
                 Match(TokenType.Repeat);
                 NewLine();
@@ -125,12 +139,11 @@
                 }
 
                 Match(TokenType.EndWhile);
+                _emitter.EmitLine("}");
             }
             // "LABEL" ident nl
             else if (CheckToken(TokenType.Label))
             {
-                Console.WriteLine("STATEMENT-LABEL");
-
                 NextToken();
 
                 if (_labelsDeclared.Contains(_currentToken))
@@ -140,41 +153,54 @@
 
                 _labelsDeclared.Add(_currentToken);
 
+                _emitter.EmitLine($"{_currentToken.Text}:");
+
                 Match(TokenType.Ident);
             }
             // "GOTO" ident nl
             else if (CheckToken(TokenType.Goto))
             {
-                Console.WriteLine("STATEMENT-GOTO");
                 NextToken();
                 _labelesGotoed.Add(_currentToken);
+                _emitter.EmitLine($"goto {_currentToken.Text};");
                 Match(TokenType.Ident);
             }
             // "LET" ident "=" expression nl
             else if (CheckToken(TokenType.Let))
             {
-                Console.WriteLine("STATEMENT-LET");
-
                 NextToken();
-                if (_symbols.Contains(_currentToken))
+
+                if (!_symbols.Contains(_currentToken))
                 {
+                    _emitter.HeaderLine($"float {_currentToken.Text};");
                     _symbols.Add(_currentToken);
                 }
 
+
+                _emitter.Emit($"{_currentToken.Text} = ");
                 Match(TokenType.Ident);
                 Match(TokenType.EQ);
                 Expression();
+                _emitter.EmitLine(";");
             }
             // "Input" ident nl
             else if (CheckToken(TokenType.Input))
             {
-                Console.WriteLine("STATEMENT-INPUT");
-
                 NextToken();
-                if (_symbols.Contains(_currentToken))
+
+                if (!_symbols.Contains(_currentToken))
                 {
                     _symbols.Add(_currentToken);
+                    _emitter.HeaderLine($"float {_currentToken.Text};");
                 }
+
+                _emitter.EmitLine($"if (0 == scanf(\"%f\", &{_currentToken.Text}))");
+                _emitter.EmitLine("{");
+                _emitter.EmitLine($"{_currentToken.Text} = 0;");
+                _emitter.Emit("scanf(\"%");
+                _emitter.EmitLine("*s\");");
+                _emitter.EmitLine("}");
+
 
                 Match(TokenType.Ident);
             }
@@ -191,11 +217,10 @@
         // expression ::= term {("-" | "+") term}
         public void Expression()
         {
-            Console.WriteLine("EXPRESSION");
-
             Term();
             while (CheckToken(TokenType.Plus) || CheckToken(TokenType.Minus))
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
                 Term();
             }
@@ -204,11 +229,11 @@
         // comparison ::= expression (("==" | "!=" | ">" | ">=" | "<" | "<=")) expression
         public void Comparison()
         {
-            Console.WriteLine("COMPARISON");
             Expression();
 
             if (IsComparisonOperator())
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
                 Expression();
             }
@@ -219,6 +244,7 @@
 
             while (IsComparisonOperator())
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
                 Expression();
             }
@@ -227,11 +253,10 @@
         // term ::= unary {("/" | "*") unary}
         public void Term()
         {
-            Console.WriteLine("TERM");
-
             Unary();
             while (CheckToken(TokenType.Slash) || CheckToken(TokenType.Asterisk))
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
                 Unary();
             }
@@ -240,10 +265,9 @@
         // unary ::= ["+" | "-"] primary
         public void Unary()
         {
-            Console.WriteLine("UNARY");
-
             if(CheckToken(TokenType.Plus) || CheckToken(TokenType.Minus))
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
             }
             Primary();
@@ -251,10 +275,9 @@
 
         public void Primary()
         {
-            Console.WriteLine($"PRIMARY ({_currentToken.Text})");
-
             if (CheckToken(TokenType.Number))
             {
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
             }
             else if (CheckToken(TokenType.Ident))
@@ -264,6 +287,7 @@
                     Abort($"Referencing variable before assignment: {_currentToken.Text}");
                 }
 
+                _emitter.Emit(_currentToken.Text);
                 NextToken();
             }
             else
@@ -284,7 +308,6 @@
 
         public void NewLine()
         {
-            Console.WriteLine("NEWLINE");
             Match(TokenType.Newline);
             while (CheckToken(TokenType.Newline))
             {
