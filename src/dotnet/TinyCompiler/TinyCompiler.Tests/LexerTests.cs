@@ -30,6 +30,7 @@ namespace TinyCompiler.Tests
         [InlineData("WHILE", TokenType.While)]
         [InlineData("REPEAT", TokenType.Repeat)]
         [InlineData("ENDWHILE", TokenType.EndWhile)]
+        [InlineData("\n", TokenType.Newline)]
         public void SimpleSource_LexterReturnsExpectedToken(string source, TokenType expectedKind)
         {
             Lexer lexer = new Lexer(source);
